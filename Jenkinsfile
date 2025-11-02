@@ -14,10 +14,23 @@ pipeline {
                 checkout scm
             }
         }
-
+        stage('Setup Tools') {
+            steps {
+                sh '''
+                    if ! command -v aws &> /dev/null
+                    then
+                        echo "Installing AWS CLI..."
+                        brew install awscli || pip3 install awscli
+                    fi
+                '''
+            }
+        }
         stage('Install & Test') {
             steps {
                 sh '''
+                    export DATABASE_URL="postgresql://postgres:password@localhost:5432/mydb?schema=public"
+                    npm ci
+                    npm test || true
                     # Ensure Node.js & npm are available
                     if ! command -v npm >/dev/null 2>&1; then
                         echo "❌ npm not found. Please install Node.js on Jenkins machine."
