@@ -4,10 +4,9 @@ pipeline {
     environment {
         AWS_REGION = 'us-east-1'
         ECR_REPO = 'node-realworld'
-        ACCOUNT_ID = '765309831951' // replace with your AWS account ID
+        ACCOUNT_ID = '765309831951'  // replace with your AWS account ID
         IMAGE_TAG = "latest"
-        SKIP_DB_TESTS = 'true'      // 🚀 skip DB-dependent tests in CI
-        FORCE_COLOR = '1'           // for colored npm logs
+        SKIP_DB_TESTS = "true"       // <-- tells Jest to skip DB tests
     }
 
     stages {
@@ -20,30 +19,33 @@ pipeline {
         stage('Setup Tools') {
             steps {
                 sh '''
-                    echo "🔧 Checking for AWS CLI..."
-                    if ! command -v aws &> /dev/null; then
+                    # Ensure AWS CLI is available
+                    if ! command -v aws &> /dev/null
+                    then
                         echo "Installing AWS CLI..."
-                        brew install awscli || pip3 install awscli
+                        if command -v brew &> /dev/null; then
+                            brew install awscli
+                        else
+                            pip3 install awscli --user
+                            export PATH=$PATH:~/.local/bin
+                        fi
                     fi
 
-                    echo "🔧 Checking for Node.js and npm..."
-                    if ! command -v npm &> /dev/null; then
-                        echo "❌ npm not found. Please install Node.js on Jenkins machine."
-                        exit 1
-                    fi
+                    echo "AWS CLI version:"
+                    aws --version || echo "⚠️ AWS CLI not found even after install"
                 '''
             }
         }
 
-        stage('Install & Test (Skip DB)') {
+        stage('Install & Test') {
             steps {
                 sh '''
                     echo "📦 Installing dependencies..."
                     npm ci
 
-                    echo "🧪 Running tests (DB tests skipped)..."
+                    echo "🧪 Running tests (DB-dependent tests skipped)..."
                     export SKIP_DB_TESTS=true
-                    npm test || echo "⚠️ Some tests failed (DB tests skipped). Continuing..."
+                    npm test || echo "⚠️ Some tests failed (DB tests likely skipped)"
                 '''
             }
         }
@@ -61,7 +63,8 @@ pipeline {
             steps {
                 sh '''
                     echo "🔑 Logging into ECR..."
-                    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                    aws ecr get-login-password --region $AWS_REGION | \
+                    docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
                 '''
             }
         }
@@ -98,10 +101,6 @@ pipeline {
     }
 
     post {
-        always {
-            echo "📁 Archiving logs if any..."
-            archiveArtifacts artifacts: 'npm-debug.log', allowEmptyArchive: true
-        }
         success {
             echo "✅ Pipeline completed successfully! Visit http://localhost:8080"
         }
