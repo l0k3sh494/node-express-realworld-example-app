@@ -27,7 +27,7 @@ pipeline {
                             brew install awscli
                         else
                             pip3 install awscli --user
-                            export PATH=$PATH:~/.local/bin
+                            export PATH=/opt/homebrew/bin:$PATH
                         fi
                     fi
 
@@ -42,10 +42,9 @@ pipeline {
                 sh '''
                     echo "📦 Installing dependencies..."
                     npm ci
-
-                    echo "🧪 Running tests (DB-dependent tests skipped)..."
-                    export SKIP_DB_TESTS=true
-                    npm test || echo "⚠️ Some tests failed (DB tests likely skipped)"
+                    echo "🧪 Running tests..."
+                    export DATABASE_URL="file:./test.db"
+                    npm test
                 '''
             }
         }
