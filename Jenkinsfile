@@ -6,7 +6,8 @@ pipeline {
         ECR_REPO = 'node-realworld'
         ACCOUNT_ID = '765309831951'  // replace with your AWS account ID
         IMAGE_TAG = "latest"
-        SKIP_DB_TESTS = "true"       // <-- tells Jest to skip DB tests
+        SKIP_DB_TESTS = "true"       // optional flag for Jest
+        PATH = "/opt/homebrew/bin:$PATH" // ensure aws CLI is found
     }
 
     stages {
@@ -19,7 +20,7 @@ pipeline {
         stage('Setup Tools') {
             steps {
                 sh '''
-                    # Ensure AWS CLI is available
+                    echo "🧰 Checking for AWS CLI..."
                     if ! command -v aws &> /dev/null
                     then
                         echo "Installing AWS CLI..."
@@ -31,19 +32,26 @@ pipeline {
                         fi
                     fi
 
-                    echo "AWS CLI version:"
+                    echo "✅ AWS CLI version:"
                     aws --version || echo "⚠️ AWS CLI not found even after install"
                 '''
             }
         }
 
-        stage('Install & Test') {
+        stage('Install & Test (SQLite CI DB)') {
             steps {
                 sh '''
                     echo "📦 Installing dependencies..."
                     npm ci
-                    echo "🧪 Running tests..."
+
+                    echo "🧪 Setting up SQLite for CI tests..."
+                    export DATABASE_PROVIDER=sqlite
                     export DATABASE_URL="file:./test.db"
+
+                    echo "🔧 Applying Prisma schema..."
+                    npx prisma db push --accept-data-loss || true
+
+                    echo "🧪 Running Jest tests with SQLite..."
                     npm test
                 '''
             }
