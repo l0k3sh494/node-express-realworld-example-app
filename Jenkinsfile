@@ -38,24 +38,19 @@ pipeline {
             }
         }
 
-        stage('Install & Test (SQLite CI DB)') {
+        stage('Install & Test') {
             steps {
                 sh '''
-                    echo "📦 Installing dependencies..."
-                    npm ci
-
-                    echo "🧪 Setting up SQLite for CI tests..."
-                    export DATABASE_PROVIDER=sqlite
-                    export DATABASE_URL="file:./test.db"
-
-                    echo "🔧 Applying Prisma schema..."
-                    npx prisma db push --accept-data-loss || true
-
-                    echo "🧪 Running Jest tests with SQLite..."
-                    npm test
+                export DATABASE_URL="file:./test.db"
+                export DATABASE_PROVIDER="sqlite"
+                npx prisma db push --accept-data-loss
+                npx prisma generate
+                npm ci
+                npm test
                 '''
             }
         }
+
 
         stage('Build Docker Image') {
             steps {
